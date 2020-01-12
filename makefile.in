@@ -1,0 +1,137 @@
+prefix							= @prefix@
+exec_prefix 					= @exec_prefix@
+bindir 							= @bindir@
+srcdir 							= @srcdir@
+target 							= powerpc-rvl-eabi
+tooldir 						= $(exec_prefix)/$(target)
+sysroot 						= $(tooldir)/wii-sysroot
+export PATH 		   		   := $(DESTDIR)$(bindir):$(PATH)
+BINUTILS_VERSION 				= @BINUTILS_VERSION@
+GCC_VERSION 					= @GCC_VERSION@
+NEWLIB_VERSION 					= @NEWLIB_VERSION@
+BINUTILS_URL 					= https://ftp.gnu.org/gnu/binutils/$(BINUTILS_VERSION).tar.gz
+GCC_URL 						= https://ftp.gnu.org/gnu/gcc/$(GCC_VERSION)/$(GCC_VERSION).tar.gz
+NEWLIB_URL 						= https://sourceware.org/pub/newlib/$(NEWLIB_VERSION).tar.gz
+CONFIG_BINUTILS 				= @CONFIG_BINUTILS@
+CONFIG_GCC 						= @CONFIG_GCC@
+CONFIG_NEWLIB 					= @CONFIG_NEWLIB@
+LDFLAGS 						= @LDFLAGS@
+CFLAGS_FOR_TARGET 				= @CFLAGS_FOR_TARGET@
+CXXFLAGS_FOR_TARGET				= @CXXFLAGS_FOR_TARGET@
+INSTALL 						= @INSTALL@
+MKDIR_P 						= @MKDIR_P@
+LN_S 							= @LN_S@
+WGET 							= @WGET@
+
+.PHONY 							: all install-toolchain clean quickclean distclean
+.PHONY 							: configure-binutils configure-gcc configure-newlib
+.PHONY							: clean-binutils clean-gcc clean-newlib quickclean-binutils quickclean-gcc quickclean-newlib
+
+all 							: install-toolchain
+install-toolchain				: install-binutils install-gcc install-newlib
+clean 							: clean-binutils clean-gcc clean-newlib
+quickclean 						: quickclean-binutils quickclean-gcc quickclean-newlib
+distclean 						: clean
+		rm -f config.log config.status makefile
+
+binutils.tar.gz 				:
+		$(WGET) binutils.tar.gz "$(BINUTILS_URL)"
+binutils 						: | binutils.tar.gz
+		mkdir binutils
+		tar xfv binutils.tar.gz --strip-components=1 -C binutils
+binutils/build/config.status	: | binutils
+		if test ! -d binutils/build; then $(MKDIR_P) binutils/build; fi
+		cd binutils/build && ../configure \
+			--prefix="$(prefix)" \
+			--target="$(target)" \
+			--disable-nls \
+			--with-sysroot="$(sysroot)" \
+			LDFLAGS="$(LDFLAGS)" \
+			CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+			CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+			$(CONFIG_BINUTILS)
+configure-binutils 				: binutils/build/config.status
+all-binutils 					: | configure-binutils
+		cd binutils/build && $(MAKE) all
+		touch $@
+install-binutils 				: | all-binutils
+		cd binutils/build && $(MAKE) install
+		touch $@
+clean-binutils 					: 
+		rm -rf binutils.tar.gz binutils all-binutils install-binutils
+quickclean-binutils 			:
+		rm -rf binutils/build all-binutils install-binutils
+
+gcc.tar.gz 						:
+		$(WGET) gcc.tar.gz "$(GCC_URL)"
+gcc 							: | gcc.tar.gz
+		mkdir gcc
+		tar xfv gcc.tar.gz --strip-components=1 -C gcc
+gcc/build/config.status 		: | gcc
+		if test ! -d gcc/build; then $(MKDIR_P) gcc/build; fi
+		cd gcc/build && ../configure \
+			--prefix="$(prefix)" \
+			--target="$(target)" \
+			--with-cpu=750 \
+			--with-newlib \
+			--with-sysroot="$(sysroot)" \
+			--with-native-system-header-dir="/usr/include" \
+			--enable-languages=c,c++,lto \
+			--enable-sjlj-exceptions \
+			--disable-multilib \
+			--disable-threads \
+			--disable-nls \
+			LDFLAGS="$(LDFLAGS)" \
+			CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+			CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+			$(CONFIG_GCC)
+configure-gcc 					: gcc/build/config.status
+all-gcc-executables 			: | configure-gcc
+		cd gcc/build && $(MAKE) all-gcc
+		touch $@
+install-gcc-executables 		: | all-gcc-executables
+		cd gcc/build && $(MAKE) install-gcc
+		touch $@
+all-gcc 						: | configure-gcc install-binutils install-newlib
+		cd gcc/build && $(MAKE) all
+		touch $@
+install-gcc 					: | all-gcc
+		cd gcc/build && $(MAKE) install
+		touch $@
+clean-gcc 						:
+		rm -rf gcc.tar.gz gcc all-gcc-executables install-gcc-executables all-gcc install-gcc
+quickclean-gcc 					:
+		rm -rf gcc/build all-gcc-executables install-gcc-executables all-gcc install-gcc
+
+newlib.tar.gz 					: 
+		$(WGET) newlib.tar.gz "$(NEWLIB_URL)"
+newlib 							: | newlib.tar.gz
+		mkdir newlib
+		tar xfv newlib.tar.gz --strip-components=1 -C newlib
+newlib/build/config.status 	: | newlib install-binutils install-gcc-executables
+		if test ! -d newlib/build; then $(MKDIR_P) newlib/build; fi
+		cd newlib/build && ../configure \
+			--prefix="$(prefix)" \
+			--target="$(target)" \
+			--with-newlib \
+			--enable-newlib-global-atexit \
+			--disable-newlib-fvwrite-in-streamio \
+			--disable-newlib-wide-orient \
+			--disable-newlib-unbuf-stream-opt \
+			--disable-newlib-supplied-syscalls \
+			--enable-lite-exit \
+			LDFLAGS="$(LDFLAGS)" \
+			CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+			CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+			$(CONFIG_NEWLIB)
+configure-newlib 				: newlib/build/config.status
+all-newlib 						: | configure-newlib install-binutils install-gcc-executables
+		cd newlib/build && $(MAKE) all
+		touch $@
+install-newlib 					: | all-newlib
+		cd newlib/build && $(MAKE) install
+		touch $@
+clean-newlib 					: 
+		rm -rf newlib.tar.gz newlib all-newlib install-newlib
+quickclean-newlib 				:
+		rm -rf newlib/build all-newlib install-newlib
